@@ -1,0 +1,10 @@
+# Local context for Claude Code sessions, not part of the repo
+/CLAUDE.md
+/host.md
+/.claude/settings.local.json
+
+# OS clutter (Windows, WSL, macOS)
+Thumbs.db
+desktop.ini
+*:Zone.Identifier
+.DS_Store
