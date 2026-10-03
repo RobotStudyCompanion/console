@@ -1,6 +1,7 @@
 # Local context for Claude Code sessions, not part of the repo
 /CLAUDE.md
 /host.md
+/PLAN.md
 /.claude/settings.local.json
 
 # OS clutter (Windows, WSL, macOS)
