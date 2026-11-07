@@ -6,7 +6,31 @@
 <title>RSC Console</title>
 <link rel="icon" href="rsc-logo.png">
 <link rel="stylesheet" href="app.css">
-<script defer src="app.js"></script>
+<!--
+    RSC Console. Talks to rsc-host over a WebSocket (ws://host:port/) with the token as a
+    subprotocol, plus a second socket kept free for stop commands, because rsc-host answers
+    one command at a time per socket. Protocol and quirks: host.md §2-3.
+
+    Plain scripts, not ES modules, so the page still works opened from disk (file://), where
+    browsers refuse modules. They share one global scope and run in this order: later files
+    may use anything declared earlier, and main.js starts everything.
+-->
+<script defer src="js/util.js"></script>
+<script defer src="js/config.js"></script>
+<script defer src="js/state.js"></script>
+<script defer src="js/log.js"></script>
+<script defer src="js/connection.js"></script>
+<script defer src="js/sync.js"></script>
+<script defer src="js/controls.js"></script>
+<script defer src="js/panels.js"></script>
+<script defer src="js/commands.js"></script>
+<script defer src="js/robot.js"></script>
+<script defer src="js/console-page.js"></script>
+<script defer src="js/chat.js"></script>
+<script defer src="js/connect.js"></script>
+<script defer src="js/shell.js"></script>
+<script defer src="js/actions.js"></script>
+<script defer src="js/main.js"></script>
 </head>
 <body>
 
@@ -126,6 +150,15 @@
                                 </div>
                             </div>
                             <p class="hint">Auto follows your device.</p>
+                        </section>
+                        <section class="card" aria-labelledby="setChatH">
+                            <div class="card-head"><h2 id="setChatH">Chat and welcome</h2><span class="chip warn">Not connected yet</span></div>
+                            <div class="field">
+                                <label for="setPrompt">System prompt</label>
+                                <textarea id="setPrompt" rows="5" placeholder="Tell the robot how to answer, for example: You are a friendly study companion. Keep answers short."></textarea>
+                            </div>
+                            <label class="switch-row" for="setOnboarding"><span>Show the welcome (onboarding) on first start</span><input type="checkbox" role="switch" id="setOnboarding"><span class="switch" aria-hidden="true"></span></label>
+                            <p class="hint">Saved only in this browser for now. The robot will use them once it has chat and the welcome.</p>
                         </section>
                         <section class="card" aria-labelledby="setRobotH">
                             <h2 id="setRobotH">Robot</h2>

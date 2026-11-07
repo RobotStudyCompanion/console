@@ -2,6 +2,9 @@
 /CLAUDE.md
 /host.md
 /PLAN.md
+/DECISIONS.md
+/DESIGN.md
+/KNOWN.md
 /.claude/settings.local.json
 
 # OS clutter (Windows, WSL, macOS)

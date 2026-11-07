@@ -102,6 +102,9 @@ body[data-view="settings"] .workspace { grid-template-columns: minmax(0, 1fr); g
 .input, select, textarea { width: 100%; border: 1px solid var(--line-strong); background: var(--bg); border-radius: var(--r-sm); padding: 8px 10px; }
 textarea { resize: vertical; font-family: var(--mono); font-size: 12.5px; }
 .chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; line-height: 16px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--fg-dim); white-space: nowrap; }
+/* Fonts leave more room above the letters than below, so the text looked low in the pill. Trim the line box to
+   the letters where the browser can; elsewhere the old line height applies. */
+@supports (text-box: trim-both cap alphabetic) { .chip { line-height: 1; padding: 4px 8px; text-box: trim-both cap alphabetic; } }
 .chip.ok { color: var(--ok); background: var(--ok-soft); border-color: transparent; }
 .chip.sim { color: var(--accent); background: var(--accent-soft); border-color: transparent; }
 .chip.warn { color: var(--warn); background: var(--warn-soft); border-color: transparent; }
@@ -137,10 +140,11 @@ textarea { resize: vertical; font-family: var(--mono); font-size: 12.5px; }
 .topbar { position: relative; display: flex; align-items: center; gap: 8px; padding: 8px 16px 8px 8px; border-bottom: 1px solid var(--line); background: var(--panel); min-height: 56px; }
 #burger { position: relative; z-index: 46; }
 #burger[aria-expanded="true"] { background: var(--panel-hi); color: var(--fg); }
-.tb-id { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+.tb-id { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .tb-title { margin: 0; font-size: 16px; line-height: 24px; font-weight: 650; }
-.tb-robot { display: flex; align-items: baseline; gap: 8px; font-size: 13px; line-height: 24px; color: var(--fg-dim); min-width: 0; }
-.tb-robot .dot { align-self: center; }
+/* Address and readiness chip centred on one line: on a shared baseline the chip's padding pushed it off the text */
+.tb-robot { display: flex; align-items: center; gap: 8px; font-size: 13px; line-height: 24px; color: var(--fg-dim); min-width: 0; }
+.tb-robot .chip { flex: none; }
 .tb-name { font-family: var(--mono); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); flex: none; }
 .tb-spacer { flex: 1; }
@@ -221,6 +225,23 @@ textarea { resize: vertical; font-family: var(--mono); font-size: 12.5px; }
 .expr button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
 .glyph { width: 30px; height: 30px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .glyph .f { fill: currentColor; stroke: none; }
+.flip-btns { margin-top: -4px; }
+.flip-btns .btn { flex: 1; justify-content: center; }
+.swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+.swatch { width: 32px; height: 32px; padding: 0; border-radius: 50%; border: 2px solid var(--line-strong); background: var(--sw); cursor: pointer; }
+.swatch:hover { border-color: var(--fg); }
+.swatch.pick { position: relative; overflow: hidden; background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red); }
+.swatch.pick input { position: absolute; inset: -8px; width: calc(100% + 16px); height: calc(100% + 16px); opacity: 0; cursor: pointer; }
+.result { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--panel-hi); min-width: 0; }
+.result-head { display: flex; align-items: center; gap: 8px; }
+.result-head code { font-family: var(--mono); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.result-head .icon-btn { margin-left: auto; }
+.kv-table { width: 100%; border-collapse: collapse; font-size: 12.5px; table-layout: fixed; }
+.kv-table th, .kv-table td { padding: 3px 6px; border-top: 1px solid var(--line); text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+.kv-table th { width: 42%; font-weight: 500; color: var(--fg-dim); font-family: var(--mono); }
+.kv-table td { font-family: var(--mono); }
+.result .raw summary { cursor: pointer; font-size: 12px; color: var(--fg-dim); }
+.result .raw pre { max-height: 260px; overflow: auto; margin: 6px 0 0; font-size: 12px; font-family: var(--mono); }
 .device { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--fg-dim); min-width: 0; }
 .device code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .readout { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; color: var(--fg-dim); }
@@ -283,13 +304,15 @@ textarea { resize: vertical; font-family: var(--mono); font-size: 12.5px; }
 .pop-item:hover { background: var(--panel-hi); }
 .pop-item .ic { width: 16px; height: 16px; color: var(--fg-dim); }
 .rb-body { fill: var(--rsc-body); stroke: var(--rsc-body-line); stroke-width: 1.5; }
-.rb-edge { fill: none; stroke-width: 3; }
+/* Ring LEDs: dim under the hood when off, lit in the ring's colour from drawRobot() */
+.rb-px { fill: var(--rsc-body-line); stroke: none; stroke-width: 0.6; }
+.rb-px-glow { stroke: none; }
 .rb-shell { fill: var(--rsc-shell); stroke: var(--rsc-shell-line); stroke-width: 1.5; }
 .rb-axle { fill: var(--rsc-shell-line); }
 .rb-pivot { fill: var(--rsc-shell-line); }
 .rb-screen { fill: var(--rsc-screen); }
 .rb-face { fill: var(--rsc-face); }
-.rb-mouth { fill: none; stroke: var(--rsc-face); stroke-width: 4; stroke-linecap: round; }
+.rb-cycle { fill: var(--rsc-face); font: 600 9px var(--sans); }
 .rb-led { fill: var(--led-on); }
 .rb-grille { fill: var(--rsc-body-line); }
 .rb-grille-lit { fill: var(--rsc-shell); transition: opacity 0.15s; }
@@ -335,9 +358,6 @@ textarea { resize: vertical; font-family: var(--mono); font-size: 12.5px; }
 .msg .via { display: flex; align-items: center; gap: 5px; margin-bottom: 4px; font-size: 11.5px; color: var(--fg-dim); }
 .msg .via .ic { width: 13px; height: 13px; }
 .msg .att { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
-.sugg { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-.sugg button { padding: 5px 10px; border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--bg); cursor: pointer; font-size: 13px; }
-.sugg button:hover { border-color: var(--accent); color: var(--accent); }
 .cursor { display: inline-block; width: 7px; height: 14px; margin-left: 2px; vertical-align: -2px; background: var(--fg-dim); animation: blink 1s steps(1) infinite; }
 .dots { display: inline-flex; gap: 4px; padding: 4px 0; }
 .dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--fg-dim); animation: bounce 1.1s infinite ease-in-out; }
