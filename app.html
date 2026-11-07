@@ -144,9 +144,9 @@
                             <div class="field">
                                 <span class="field-label" id="themeL">Theme</span>
                                 <div class="seg" role="radiogroup" aria-labelledby="themeL">
-                                    <label class="seg-opt"><input type="radio" name="theme" id="theme-auto" value="auto"><span>Auto</span></label>
-                                    <label class="seg-opt"><input type="radio" name="theme" id="theme-light" value="light"><span>Light</span></label>
-                                    <label class="seg-opt"><input type="radio" name="theme" id="theme-dark" value="dark"><span>Dark</span></label>
+                                    <label class="seg-opt"><input type="radio" name="theme" id="theme-auto" data-k="ui.theme" value="auto"><span>Auto</span></label>
+                                    <label class="seg-opt"><input type="radio" name="theme" id="theme-light" data-k="ui.theme" value="light"><span>Light</span></label>
+                                    <label class="seg-opt"><input type="radio" name="theme" id="theme-dark" data-k="ui.theme" value="dark"><span>Dark</span></label>
                                 </div>
                             </div>
                             <p class="hint">Auto follows your device.</p>
@@ -155,9 +155,9 @@
                             <div class="card-head"><h2 id="setChatH">Chat and welcome</h2><span class="chip warn">Not connected yet</span></div>
                             <div class="field">
                                 <label for="setPrompt">System prompt</label>
-                                <textarea id="setPrompt" rows="5" placeholder="Tell the robot how to answer, for example: You are a friendly study companion. Keep answers short."></textarea>
+                                <textarea id="setPrompt" data-k="prefs.systemPrompt" rows="5" placeholder="Tell the robot how to answer, for example: You are a friendly study companion. Keep answers short."></textarea>
                             </div>
-                            <label class="switch-row" for="setOnboarding"><span>Show the welcome (onboarding) on first start</span><input type="checkbox" role="switch" id="setOnboarding"><span class="switch" aria-hidden="true"></span></label>
+                            <label class="switch-row" for="setOnboarding"><span>Show the welcome (onboarding) on first start</span><input type="checkbox" role="switch" id="setOnboarding" data-k="prefs.onboarding"><span class="switch" aria-hidden="true"></span></label>
                             <p class="hint">Saved only in this browser for now. The robot will use them once it has chat and the welcome.</p>
                         </section>
                         <section class="card" aria-labelledby="setRobotH">

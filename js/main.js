@@ -11,8 +11,8 @@ if (location.hash.length > 1) {
     $("#cfHost").dispatchEvent(new Event("input"));
 }
 applyTheme();
-$("#setPrompt").value = S.prefs.systemPrompt;
-$("#setOnboarding").checked = S.prefs.onboarding;
+// Fills the Settings fields, among others
+render();
 applyDock();
 applyFilter();
 renderRecent();

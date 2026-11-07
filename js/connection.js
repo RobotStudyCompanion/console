@@ -1,9 +1,11 @@
-// RSC Console · Sockets to the robot: connect, commands and acks, the stop socket, disconnect.
+// RSC Console · Sockets to the robot: opening them, commands and acks, the stop socket, disconnect.
 "use strict";
 
 // ---- Connection ----
 const C = { ws: null, ctl: null, seq: 0, pending: new Map(), connected: false, expectClose: "" };
 const supports = (verb) => !S.robot.verbs.size || S.robot.verbs.has(verb);
+// Run when the main connection closes, with the note to show; each feature adds its own clean-up
+const onDisconnect = [];
 
 // Resolves with an open socket, or rejects. The browser can't tell a wrong
 // token from an unreachable robot: both arrive as a plain close (host.md §2.1).
@@ -21,7 +23,7 @@ function openSocket(host, port, token, ms = 6000) {
 
 // Sends a command and resolves with its ack, or with null if the connection is gone.
 // `urgent` uses the stop socket when it is open.
-function request(verb, args = {}, opts = {}) {
+function send(verb, args = {}, opts = {}) {
     const ws = opts.urgent && C.ctl && C.ctl.readyState === WebSocket.OPEN ? C.ctl : C.ws;
     if (!ws || ws.readyState !== WebSocket.OPEN) { log("err", `not connected (${verb})`); return Promise.resolve(null); }
     const id = "c" + (++C.seq);
@@ -30,7 +32,6 @@ function request(verb, args = {}, opts = {}) {
     ws.send(JSON.stringify(msg));
     return new Promise((resolve) => C.pending.set(id, { verb, resolve }));
 }
-const send = (verb, args = {}, opts) => request(verb, args, opts);
 
 function onMessage(e, main) {
     let msg;
@@ -53,41 +54,14 @@ function onMessage(e, main) {
     }
 }
 
-async function connectTo(host, port, token, button) {
-    const label = button ? button.innerHTML : "";
-    if (button) { button.disabled = true; button.textContent = "Connecting…"; }
-    formError("");
-    $("#connectNote").hidden = true;
+// Opens the main socket and makes it this console's connection. Rejects if the robot can't be reached.
+async function openRobot(host, port, token) {
     log("info", `opening ws://${host}:${port}/`);
-    let ws;
-    try { ws = await openSocket(host, port, token); }
-    catch {
-        log("err", `couldn't connect to ${host}:${port}`);
-        formError(`Couldn't connect to ${host}:${port}. Check that the robot is on and on this network, and that the token is right.` +
-            (location.protocol === "https:" ? " This page was opened over https, and some browsers block connections to the robot from https pages; open the file from your computer instead." : ""));
-        $("#cfHost").value = host;
-        $("#cfPort").value = String(port);
-        if (button) { button.disabled = false; button.innerHTML = label; }
-        return;
-    }
-    if (button) { button.disabled = false; button.innerHTML = label; }
-    C.ws = ws;
-    C.connected = true;
-    C.expectClose = "";
+    const ws = await openSocket(host, port, token);
+    Object.assign(C, { ws, connected: true, expectClose: "" });
     ws.onmessage = (e) => onMessage(e, true);
-    ws.onclose = (e) => onMainClose(e);
+    ws.onclose = onMainClose;
     log("info", `connected (subprotocol: ${ws.protocol})`);
-    rememberRobot(host, port, token);
-    S.robot = { host, port, version: "", backend: "", simulated: false, verbs: new Set(), missing: [], status: false, powerAllowed: false, powerReason: "", powerFix: "" };
-    S.cal.holding = false;
-    S.sound.result = null;
-    S.sound.error = "";
-    S.face = { mood: store.get(K.face, {})[host] || null, cycle: false };
-    S.diag = {};
-    renderRobotInfo();
-    go("console");
-    openStopSocket(host, port, token);
-    await syncFromRobot();
 }
 
 // The second socket only ever carries stop commands, so they never wait behind a slow verb
@@ -103,7 +77,9 @@ async function openStopSocket(host, port, token) {
     }
 }
 
-function teardown() {
+function onMainClose(e) {
+    const note = C.expectClose || `Lost the connection to ${S.robot.host}${e.code ? ` (code ${e.code})` : ""}.`;
+    log("info", `connection closed (code ${e.code}${e.reason ? ", " + e.reason : ""})`);
     C.connected = false;
     for (const p of C.pending.values()) p.resolve(null);
     C.pending.clear();
@@ -112,22 +88,7 @@ function teardown() {
         C[k] = null;
         if (w) { w.onclose = null; w.onmessage = null; try { w.close(); } catch {} }
     }
-    clearTimeout(saveT);
-    S.sound.running = false;
-    S.cal.holding = false;
-    endVoice(true);
-}
-function onMainClose(e) {
-    const note = C.expectClose || `Lost the connection to ${S.robot.host}${e.code ? ` (code ${e.code})` : ""}.`;
-    log("info", `connection closed (code ${e.code}${e.reason ? ", " + e.reason : ""})`);
-    teardown();
-    leave(note);
-}
-function leave(note) {
-    go("connect");
-    renderRecent();
-    $("#connectNote").textContent = note;
-    $("#connectNote").hidden = !note;
+    onDisconnect.forEach((f) => f(note));
 }
 function disconnect() {
     const host = S.robot.host;
@@ -138,13 +99,14 @@ function disconnect() {
     const ws = C.ws;
     setTimeout(() => { try { ws && ws.close(); } catch {} }, 150);
 }
-// Best effort: flippers stopped and calibration holds released, sent without waiting for replies
+// Best effort: flippers stopped and calibration holds released, without waiting for replies
 function stopRobotQuietly() {
-    const ws = C.ctl && C.ctl.readyState === WebSocket.OPEN ? C.ctl : C.ws;
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    try {
-        ws.send(JSON.stringify({ type: "cmd", id: "leave-stop", verb: "flipper.stop_all", args: {} }));
-        ws.send(JSON.stringify({ type: "cmd", id: "leave-release", verb: "servo.hold.stop", args: {} }));
-    } catch {}
+    send("flipper.stop_all", {}, { urgent: true });
+    send("servo.hold.stop", {}, { urgent: true });
 }
 addEventListener("pagehide", () => { if (C.connected) stopRobotQuietly(); });
+
+// What the connect page says after the robot was told to restart or shut down
+const powerNote = (action) => action === "reboot"
+    ? `${S.robot.host} is restarting. It should be back in about a minute.`
+    : `${S.robot.host} is shutting down. Someone has to reach its power supply to start it again.`;

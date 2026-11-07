@@ -1,4 +1,4 @@
-// RSC Console · Fixed data: storage keys, verbs, ring colours, moods and faces, defaults, which verb each control needs.
+// RSC Console · Fixed data: storage keys, verbs, ring colours, moods and faces, defaults.
 "use strict";
 
 // localStorage keys. The first two come from the old single-file console and
@@ -53,27 +53,14 @@ const moodName = (m) => (MOODS.find(([v]) => v === m) || [m, m])[1];
 // Flipper buttons spin at one of these speeds, in percent of the usable range
 const SPEEDS = { slow: 30, medium: 60, fast: 100 };
 
-// What Reset goes back to. The mixer's and the calibration's own resets restore what the robot shipped with.
+// What Reset and the Default preset go back to, one entry per part of a preset. The mixer isn't here: its
+// default is whatever the robot shipped with (audio.mixer.reset), and so is the calibration's.
 const DEFAULTS = {
     ring: { mode: "off", r: 0, g: 80, b: 255, level: 60 },
     led: { mode: "off" },
     face: { mood: "HAPPY" },
     sound: { volume: 50, muted: false, playback: true, normalise: true },
-    mic: { on: true, rate: 48000, channel: "left", hpfOn: true, boostL: 2, boostR: 2, capture: 28 },
+    mic: { on: true, rate: 48000, channel: "left", hpfOn: true },
 };
 
 const MIXER = { boostL: "Left Input Boost Mixer LINPUT1", boostR: "Right Input Boost Mixer RINPUT1", capture: "Capture" };
-
-// Which verb each control needs, so controls the robot's daemon lacks are disabled instead of failing
-const NEEDS_KEY = {
-    "flip.left": "flipper.left", "flip.right": "flipper.right", "ring.mode": "ring.mode", "led.mode": "button_led",
-    "ring.r": "ring.mode", "ring.g": "ring.mode", "ring.b": "ring.mode", "ring.level": "ring.mode", "ring.hex": "ring.mode", "face.cycle": "cyd.mood_cycle",
-    "sound.volume": "audio.volume", "sound.muted": "audio.mute", "sound.playback": "audio.selftest", "sound.normalise": "audio.selftest",
-    "mic.on": "audio.mic_mute", "mic.rate": "audio.capture.tune", "mic.channel": "audio.capture.tune", "mic.hpfOn": "audio.capture.tune",
-    "mic.boostL": "audio.mixer.set", "mic.boostR": "audio.mixer.set", "mic.capture": "audio.mixer.set", "cal.side": "servo.hold", "cal.us": "servo.hold",
-};
-const NEEDS_ACT = {
-    mood: "cyd.mood", blink: "cyd.blink", ringColour: "ring.mode", runTest: "audio.selftest", stopPlay: "audio.stop_play",
-    mixerReset: "audio.mixer.reset", calStart: "servo.hold", calSave: "servo.calibrate", calRelease: "servo.hold.stop", calReset: "servo.calibration.reset",
-    quickMute: "audio.mute", quickMic: "audio.mic_mute", stopAll: "flipper.stop_all",
-};

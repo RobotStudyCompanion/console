@@ -2,7 +2,7 @@
 "use strict";
 
 // ---- The robot (front view) ----
-const ang = { l: 0, r: 0 };
+const flipAngle = { l: 0, r: 0 };
 // The ring's 16 LEDs sit under the hood round the button, seen slightly from above, so the circle is an ellipse.
 // They are spaced evenly along it, not by angle: equal angles would bunch them up at the sides. The whole ring
 // stays inside the blue band between the top of the head and the screen frame, as on the robot; the back half
@@ -104,8 +104,8 @@ function drawRobot(t = performance.now()) {
             el.setAttribute("opacity", on ? Math.max(0.25, b).toFixed(2) : "1");
         }
     });
-    drawFlipper(svg.querySelector("#rbFlipL"), reduced ? S.flip.left * 0.8 : ang.l);
-    drawFlipper(svg.querySelector("#rbFlipR"), reduced ? S.flip.right * 0.8 : ang.r);
+    drawFlipper(svg.querySelector("#rbFlipL"), reduced ? S.flip.left * 0.8 : flipAngle.l);
+    drawFlipper(svg.querySelector("#rbFlipR"), reduced ? S.flip.right * 0.8 : flipAngle.r);
     // While the robot cycles its moods, it picks the next one and its timing itself and doesn't report them,
     // so the drawing says it's cycling rather than showing a face that would be out of step
     const mood = S.face.mood || "NEUTRAL";
@@ -136,17 +136,17 @@ function drawRobot(t = performance.now()) {
     svg.querySelectorAll(".part").forEach((g) => g.classList.toggle("is-sel", g.dataset.part === S.ui.sel));
 }
 let lastT = performance.now();
-function loop(t) {
+function robotLoop(t) {
     const dt = Math.min(0.1, (t - lastT) / 1000);
     lastT = t;
     if (S.view === "console") {
-        if (!reduced) { ang.l += S.flip.left / 100 * 240 * dt; ang.r += S.flip.right / 100 * 240 * dt; }
+        if (!reduced) { flipAngle.l += S.flip.left / 100 * 240 * dt; flipAngle.r += S.flip.right / 100 * 240 * dt; }
         drawRobot(t);
     }
-    requestAnimationFrame(loop);
+    requestAnimationFrame(robotLoop);
 }
-requestAnimationFrame(loop);
+requestAnimationFrame(robotLoop);
 document.addEventListener("keydown", (e) => {
     const part = e.target.closest?.(".part");
-    if (part && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); select(part.dataset.part); }
+    if (part && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); selectPart(part.dataset.part); }
 });

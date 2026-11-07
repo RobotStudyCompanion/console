@@ -26,7 +26,7 @@ let CHATS = store.get(K.chats, []);
 if (!Array.isArray(CHATS)) CHATS = [];
 const newChatObj = () => ({ id: "k" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), title: "New chat", at: Date.now(), msgs: [{ role: "intro" }] });
 if (!CHATS.length) CHATS.push(newChatObj());
-let chatId = CHATS[0].id, stream = null, voice = null, pending = [];
+let chatId = CHATS[0].id, chatStream = null, chatVoice = null, chatFiles = [];
 const curChat = () => CHATS.find((c) => c.id === chatId) || CHATS[0];
 const saveChats = () => store.set(K.chats, CHATS.slice(0, 50));
 const fmtSize = (b) => b < 1024 ? `${b} B` : b < 1048576 ? `${Math.round(b / 1024)} KB` : `${(b / 1048576).toFixed(1)} MB`;
@@ -83,19 +83,19 @@ function renderChat() {
 const scrollChat = () => { const s = $("#chatScroll"); s.scrollTop = s.scrollHeight; };
 function renderFiles() {
     const fbox = $("#fileChips");
-    fbox.hidden = pending.length === 0;
-    fbox.innerHTML = pending.map((f, i) => fileChip(f, i)).join("");
+    fbox.hidden = chatFiles.length === 0;
+    fbox.innerHTML = chatFiles.map((f, i) => fileChip(f, i)).join("");
 }
 function syncComposer() {
-    const b = $("#chatSend"), listening = !!voice;
-    b.innerHTML = stream ? '<svg class="ic"><use href="#i-stop"/></svg><span>Stop</span>' : '<svg class="ic"><use href="#i-send"/></svg><span>Send</span>';
-    b.classList.toggle("primary", !stream);
+    const b = $("#chatSend"), listening = !!chatVoice;
+    b.innerHTML = chatStream ? '<svg class="ic"><use href="#i-stop"/></svg><span>Stop</span>' : '<svg class="ic"><use href="#i-send"/></svg><span>Send</span>';
+    b.classList.toggle("primary", !chatStream);
     b.disabled = listening;
     $("#chatInput").hidden = listening;
     $("#listening").hidden = !listening;
     const mic = $("#micBtn");
     mic.classList.toggle("rec", listening);
-    mic.disabled = !!stream;
+    mic.disabled = !!chatStream;
     mic.setAttribute("aria-pressed", String(listening));
     const label = listening ? "Stop listening and send" : "Talk to the robot";
     mic.setAttribute("aria-label", label);
@@ -103,9 +103,9 @@ function syncComposer() {
     $('[data-act="attach"]').disabled = listening;
 }
 async function sendChat(raw, opts = {}) {
-    const text = raw.trim(), files = pending;
-    if ((!text && !files.length) || stream) return;
-    pending = [];
+    const text = raw.trim(), files = chatFiles;
+    if ((!text && !files.length) || chatStream) return;
+    chatFiles = [];
     const c = curChat();
     const history = c.msgs.filter((m) => m.role === "user" || (m.role === "ai" && m.text)).map((m) => ({ role: m.role, text: m.text }));
     c.msgs.push({ role: "user", text, files, voice: !!opts.voice });
@@ -121,7 +121,7 @@ async function sendChat(raw, opts = {}) {
     $("#chatMsgs").appendChild(el);
     scrollChat();
     const ctrl = new AbortController();
-    stream = ctrl;
+    chatStream = ctrl;
     syncComposer();
     try {
         for await (const piece of sendToRobot(text, { files, history, signal: ctrl.signal })) {
@@ -134,37 +134,37 @@ async function sendChat(raw, opts = {}) {
     } catch (exc) {
         if (exc.name !== "AbortError") { log("err", `chat: ${exc.message}`); m.error = exc.message; }
     } finally {
-        if (stream === ctrl) stream = null;
+        if (chatStream === ctrl) chatStream = null;
         if (!m.text && !m.error) c.msgs.pop();
         saveChats();
         if (S.view === "chat") renderChat();
     }
 }
-function stopStream() { if (stream) stream.abort(); }
+function stopStream() { if (chatStream) chatStream.abort(); }
 async function startVoice() {
-    if (stream || voice) return;
+    if (chatStream || chatVoice) return;
     const ctrl = new AbortController();
-    voice = { ctrl, finish: null };
+    chatVoice = { ctrl, finish: null };
     syncComposer();
     log("info", "chat: listening (stand-in: rsc-host has no speech-to-text yet)");
     try {
-        const heard = await listenOnRobot({ signal: ctrl.signal, onFinish: (f) => { if (voice) voice.finish = f; } });
-        voice = null;
+        const heard = await listenOnRobot({ signal: ctrl.signal, onFinish: (f) => { if (chatVoice) chatVoice.finish = f; } });
+        chatVoice = null;
         syncComposer();
         if (heard) sendChat(heard, { voice: true });
     } catch {
-        voice = null;
+        chatVoice = null;
         syncComposer();
     }
 }
 function endVoice(cancel) {
-    if (!voice) return;
-    if (cancel) voice.ctrl.abort();
-    else voice.finish?.();
+    if (!chatVoice) return;
+    if (cancel) chatVoice.ctrl.abort();
+    else chatVoice.finish?.();
 }
 $("#composer").addEventListener("submit", (e) => {
     e.preventDefault();
-    if (stream) { stopStream(); return; }
+    if (chatStream) { stopStream(); return; }
     const ta = $("#chatInput");
     sendChat(ta.value);
     ta.value = "";
@@ -175,8 +175,38 @@ $("#chatInput").addEventListener("keydown", (e) => {
 });
 $("#chatInput").addEventListener("input", (e) => { const t = e.target; t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 140) + "px"; });
 $("#fileInput").addEventListener("change", (e) => {
-    for (const f of e.target.files) pending.push({ name: f.name, size: f.size });
+    for (const f of e.target.files) chatFiles.push({ name: f.name, size: f.size });
     e.target.value = "";
     renderFiles();
     $("#chatInput").focus();
+});
+onDisconnect.push(() => endVoice(true));
+
+function openChat(id) {
+    stopStream();
+    endVoice(true);
+    chatId = id;
+    closeMenu();
+    renderChat();
+}
+function newChat() {
+    stopStream();
+    endVoice(true);
+    // Reuse an empty chat instead of piling up blank ones
+    const blank = CHATS.find((c) => c.msgs.every((m) => m.role === "intro"));
+    const c = blank || newChatObj();
+    if (!blank) CHATS.unshift(c);
+    c.at = Date.now();
+    chatId = c.id;
+    saveChats();
+    closeMenu();
+    renderChat();
+    $("#chatInput").focus();
+}
+Object.assign(ACTIONS, {
+    openChat: { run: openChat },
+    newChat: { run: newChat },
+    attach: { run: () => $("#fileInput").click() },
+    unattach: { run: (arg) => { chatFiles.splice(Number(arg), 1); renderFiles(); } },
+    voice: { run: () => (chatVoice ? endVoice(false) : startVoice()) },
 });

@@ -4,7 +4,7 @@
 // ---- Control builders ----
 const idOf = (k) => "c-" + k.replace(/\./g, "-");
 function slider(k, label, o) {
-    const id = idOf(k), v = get(k), u = o.unit ? " " + o.unit : "";
+    const id = idOf(k), v = getPath(k), u = o.unit ? " " + o.unit : "";
     const lab = o.labels || [minus(o.min) + u, minus(o.max) + u];
     return `<div class="field" data-field="${k}">
 <div class="field-head"><label for="${id}">${label}</label><span class="num"><input type="number" id="${id}-n" data-k="${k}" min="${o.min}" max="${o.max}" step="${o.step}" value="${v}" aria-label="${label}, exact value">${o.unit ? `<span class="unit">${o.unit}</span>` : ""}</span></div>
@@ -12,13 +12,13 @@ function slider(k, label, o) {
 <div class="ticks">${lab.map((t) => `<span>${t}</span>`).join("")}</div></div>`;
 }
 function seg(k, label, opts) {
-    const id = idOf(k), v = String(get(k));
+    const id = idOf(k), v = String(getPath(k));
     return `<div class="field" data-field="${k}"><span class="field-label" id="${id}-l">${label}</span><div class="seg" role="radiogroup" aria-labelledby="${id}-l">${opts.map(([val, t]) =>
         `<label class="seg-opt"><input type="radio" name="${id}" id="${id}-${val}" data-k="${k}" value="${val}"${String(val) === v ? " checked" : ""}><span>${t}</span></label>`).join("")}</div></div>`;
 }
 function toggle(k, label) {
     const id = idOf(k);
-    return `<label class="switch-row" data-field="${k}" for="${id}"><span>${label}</span><input type="checkbox" role="switch" id="${id}" data-k="${k}"${get(k) ? " checked" : ""}><span class="switch" aria-hidden="true"></span></label>`;
+    return `<label class="switch-row" data-field="${k}" for="${id}"><span>${label}</span><input type="checkbox" role="switch" id="${id}" data-k="${k}"${getPath(k) ? " checked" : ""}><span class="switch" aria-hidden="true"></span></label>`;
 }
 const btn = (act, label, cls = "") => `<button type="button" class="btn ${cls}" data-act="${act}">${label}</button>`;
 const hint = (t) => `<p class="hint">${t}</p>`;

@@ -2,23 +2,31 @@
 "use strict";
 
 // ---- State ----
-const S = {
+// Everything this console knows about one robot. Made fresh on every connect, so nothing carries over
+// from the robot before; syncFromRobot() then fills in what the robot reports.
+function robotState(host = "", port = 8765) {
+    return {
+        robot: { host, port, version: "", backend: "", simulated: false, verbs: new Set(), missing: [], status: false, powerAllowed: false, powerReason: "", powerFix: "" },
+        flip: { left: 0, right: 0 },
+        ring: clone(DEFAULTS.ring),
+        led: clone(DEFAULTS.led),
+        // The robot doesn't report its face, so this is the last one this browser set (null: not known)
+        face: { mood: store.get(K.face, {})[host] || null, cycle: false },
+        diag: {},
+        sound: Object.assign(clone(DEFAULTS.sound), { running: false, device: "", result: null, error: "" }),
+        // The mixer values are shown until the robot's own are read
+        mic: Object.assign(clone(DEFAULTS.mic), { boostL: 2, boostR: 2, capture: 28, missing: new Set() }),
+        cal: { side: "left", holding: false, us: 1500, stored: { left: null, right: null } },
+    };
+}
+// The rest is this browser's own: the page, the layout, and the chat and onboarding settings (only in this
+// browser until the robot has chat, step 3, and onboarding, step 8)
+const S = Object.assign({
     view: "connect",
     ui: Object.assign({ sel: "movement", theme: "auto", adv: {}, speed: "medium", dz: {} }, store.get(K.ui, {})),
     dock: Object.assign({ state: "open", w: 380, h: 240, filter: "all" }, store.get(K.log, {})),
-    robot: { host: "", port: 8765, version: "", backend: "", simulated: false, verbs: new Set(), missing: [], status: false, powerAllowed: false, powerReason: "", powerFix: "" },
-    flip: { left: 0, right: 0 },
-    ring: clone(DEFAULTS.ring),
-    led: { mode: "off" },
-    // The robot doesn't report its face, so this is the last one this browser set (null: not known)
-    face: { mood: null, cycle: false },
-    // Chat and onboarding settings. Only in this browser until the robot has chat (step 3) and onboarding (step 8)
     prefs: Object.assign({ systemPrompt: "", onboarding: true }, store.get(K.prefs, {})),
-    diag: {},
-    sound: { volume: 50, muted: false, playback: true, normalise: true, running: false, device: "", result: null, error: "" },
-    mic: { on: true, rate: 48000, channel: "left", hpfOn: true, boostL: 2, boostR: 2, capture: 28, missing: new Set() },
-    cal: { side: "left", holding: false, us: 1500, stored: { left: null, right: null } },
-};
+}, robotState());
 if (!S.ui.adv || typeof S.ui.adv !== "object") S.ui.adv = {};
 // Dead zone per flipper, in percent of full speed: below it the servo doesn't turn (left span 100 µs → 25 % is 25 µs)
 S.ui.dz = Object.assign({ left: 25, right: 25 }, S.ui.dz);
@@ -27,8 +35,9 @@ if (S.dock.state !== "closed") S.dock.state = "open";
 S.dock.w = clamp(Number(S.dock.w) || 380, 280, 640);
 S.dock.h = clamp(Number(S.dock.h) || 240, 140, 600);
 let logBodyOpen = false, logExpanded = false;
-const get = (k) => k.split(".").reduce((o, p) => o[p], S);
-const set = (k, v) => { const ps = k.split("."); const last = ps.pop(); ps.reduce((o, p) => o[p], S)[last] = v; };
+// A control's key is its path in S, like "sound.volume"
+const getPath = (k) => k.split(".").reduce((o, p) => o[p], S);
+const setPath = (k, v) => { const ps = k.split("."); const last = ps.pop(); ps.reduce((o, p) => o[p], S)[last] = v; };
 const saveUI = () => store.set(K.ui, S.ui);
 const savePrefs = () => store.set(K.prefs, S.prefs);
 

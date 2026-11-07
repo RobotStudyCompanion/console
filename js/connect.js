@@ -1,4 +1,4 @@
-// RSC Console · The Connect page: recent robots, the form, and Scan.
+// RSC Console · The Connect page: recent robots, the form, Scan, and connecting.
 "use strict";
 
 // ---- Connect page ----
@@ -100,3 +100,54 @@ async function scan(el) {
         : `<li><span class="rr-name">Nothing answered. Type the robot's address instead.</span></li>`;
     $("#scanList").hidden = false;
 }
+
+// ---- Connecting ----
+async function connectTo(host, port, token, button) {
+    const label = button ? button.innerHTML : "";
+    if (button) { button.disabled = true; button.textContent = "Connecting…"; }
+    formError("");
+    $("#connectNote").hidden = true;
+    let ok = true;
+    try { await openRobot(host, port, token); } catch { ok = false; }
+    if (button) { button.disabled = false; button.innerHTML = label; }
+    if (!ok) {
+        log("err", `couldn't connect to ${host}:${port}`);
+        formError(`Couldn't connect to ${host}:${port}. Check that the robot is on and on this network, and that the token is right.` +
+            (location.protocol === "https:" ? " This page was opened over https, and some browsers block connections to the robot from https pages; open the file from your computer instead." : ""));
+        $("#cfHost").value = host;
+        $("#cfPort").value = String(port);
+        return;
+    }
+    rememberRobot(host, port, token);
+    Object.assign(S, robotState(host, port));
+    renderRobotInfo();
+    go("console");
+    openStopSocket(host, port, token);
+    await syncFromRobot();
+}
+// Back to this page when the connection closes, saying why
+function leave(note) {
+    go("connect");
+    renderRecent();
+    $("#connectNote").textContent = note;
+    $("#connectNote").hidden = !note;
+}
+onDisconnect.push(leave);
+
+Object.assign(ACTIONS, {
+    connect: {
+        run: (arg, el) => {
+            const r = recentRobots().find((x) => x.host === arg);
+            if (!r) return;
+            const token = store.raw(K.token(r.host));
+            if (token) { connectTo(r.host, r.port || 8765, token, el); return; }
+            $("#cfHost").value = r.host;
+            $("#cfPort").value = String(r.port || 8765);
+            formError(`Enter the token for ${r.host}.`);
+            $("#cfToken").focus();
+        },
+    },
+    forget: { run: (arg) => { forgetRobot(arg); renderRecent(); } },
+    scan: { run: (arg, el) => scan(el) },
+    useScan: { run: (arg) => { $("#cfHost").value = arg; $("#cfHost").dispatchEvent(new Event("input")); $("#cfToken").focus(); } },
+});

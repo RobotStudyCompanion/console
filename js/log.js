@@ -1,4 +1,4 @@
-// RSC Console · The log column: entries, filters, unread badge, docking and resizing.
+// RSC Console · The log column: entries, filters, unread badge, docking and resizing, and its buttons.
 "use strict";
 
 // ---- Log ----
@@ -92,4 +92,26 @@ grip.addEventListener("keydown", (e) => {
     if (wide.matches) S.dock.w = clamp(S.dock.w + d, 280, Math.max(280, innerWidth - 560));
     else S.dock.h = clamp(S.dock.h + d, 140, Math.max(140, innerHeight - 220));
     applyDock();
+});
+
+const logText = () => LOG.filter((e) => matchesFilter(e.kind)).map((e) => `${fmtTime(e.t)} ${KIND[e.kind]} ${e.text}`).join("\n");
+Object.assign(ACTIONS, {
+    toggleLog: { run: () => setDock(S.dock.state === "closed" ? "open" : "closed") },
+    logClose: { run: () => setDock("closed") },
+    logExpand: { run: () => { logExpanded = !logExpanded; applyDock(); } },
+    logBody: { run: () => { if (phone.matches && !logExpanded) { logBodyOpen = !logBodyOpen; applyDock(); } } },
+    filter: { run: (arg) => { S.dock.filter = arg; applyDock(); applyFilter(); } },
+    copyLog: { run: (arg, el) => copyText(logText()).then((ok) => { if (ok) flash(el, ""); }) },
+    saveLog: {
+        run: () => {
+            const text = logText();
+            if (!text) return;
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
+            link.download = `rsc-console-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}.log`;
+            link.click();
+            setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+        },
+    },
+    clearLog: { run: () => { LOG.length = 0; $("#logList").innerHTML = ""; unread = 0; renderLogHead(); } },
 });

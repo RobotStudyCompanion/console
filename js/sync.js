@@ -3,34 +3,33 @@
 
 // ---- Reading the robot's state after connecting ----
 async function syncFromRobot() {
-    const st = await request("status");
+    const st = await send("status");
     if (st?.ok) {
         S.robot.version = st.result?.version || "";
         S.robot.verbs = new Set(st.result?.verbs || []);
     }
-    const ps = await request("peripherals.status");
+    const ps = await send("peripherals.status");
     if (ps?.ok && ps.result) applyPeripherals(ps.result);
     S.robot.status = true;
     if (!S.robot.simulated && supports("system.power_status")) {
-        const pw = await request("system.power_status");
+        const pw = await send("system.power_status");
         S.robot.powerAllowed = !!(pw?.ok && pw.result?.allowed);
         S.robot.powerReason = pw?.result?.reason || "";
         S.robot.powerFix = pw?.result?.fix || "";
     }
     if (supports("audio.volume.get")) {
-        const v = await request("audio.volume.get");
+        const v = await send("audio.volume.get");
         if (v?.ok && v.result) applyVolume(v.result);
     }
     if (supports("audio.mixer.get")) await readMixer();
     if (supports("audio.devices")) {
-        const d = await request("audio.devices");
+        const d = await send("audio.devices");
         if (d?.ok) S.sound.device = deviceName(d.result);
     }
     // The screen has its own power supply, so it stays blank after a shutdown from this console until something wakes it
-    if (!S.robot.simulated && supports("cyd.raw")) request("cyd.raw", { line: "resume" });
+    if (!S.robot.simulated && supports("cyd.raw")) send("cyd.raw", { line: "resume" });
     renderRobotInfo();
     refreshPanel();
-    afterChange();
 }
 function applyPeripherals(p) {
     S.robot.backend = p.backend || "";
@@ -60,7 +59,7 @@ function applyVolume(r) {
     if (typeof r.muted === "boolean") S.sound.muted = r.muted;
 }
 async function readMixer() {
-    const r = await request("audio.mixer.get");
+    const r = await send("audio.mixer.get");
     if (!r?.ok || !r.result) return;
     const c = r.result.controls || r.result;
     S.mic.missing = new Set();
@@ -95,12 +94,23 @@ function renderRobotInfo() {
 // Controls follow the robot, but not while you are dragging them yourself
 const touched = {};
 const fresh = (k) => performance.now() - (touched[k] || 0) < 700;
-function applyEvent(topic, d) {
-    const m = topic.match(/^flipper\.(left|right)\.state$/);
-    if (m) {
-        const k = "flip." + m[1];
-        if (!fresh(k) && typeof d.speed === "number") { S.flip[m[1]] = fromRobot(m[1], d.speed); syncControls(k, null); }
-    } else if (topic === "ring.mode") {
+const flipEvent = (id) => (d) => {
+    const k = "flip." + id;
+    if (!fresh(k) && typeof d.speed === "number") robotSet(k, fromRobot(id, d.speed));
+};
+function volumeEvent(d) {
+    if (!fresh("sound.volume") && typeof d.volume === "number") S.sound.volume = d.volume;
+    if (typeof d.muted === "boolean") S.sound.muted = d.muted;
+    render();
+}
+const powerEvent = (action) => (d) => {
+    if (d.pending) C.expectClose = powerNote(action);
+    else if (d.scheduled === false) C.expectClose = "";
+};
+const ON_EVENT = {
+    "flipper.left.state": flipEvent("left"),
+    "flipper.right.state": flipEvent("right"),
+    "ring.mode": (d) => {
         S.ring.mode = d.mode || "off";
         // A colour someone else set: show it as it is, at full brightness
         const p = d.params || {};
@@ -108,19 +118,13 @@ function applyEvent(topic, d) {
             const mine = ringParams();
             if (p.r !== mine.r || p.g !== mine.g || p.b !== mine.b) Object.assign(S.ring, { r: p.r, g: p.g, b: p.b, level: 100 });
         }
-        syncRing();
-    } else if (topic === "button_led.state") {
-        S.led.mode = d.mode || "off";
-        syncControls("led.mode", null);
-    } else if (topic === "audio.volume" || topic === "audio.mute") {
-        if (!fresh("sound.volume") && typeof d.volume === "number") { S.sound.volume = d.volume; syncControls("sound.volume", null); }
-        if (typeof d.muted === "boolean") { S.sound.muted = d.muted; syncControls("sound.muted", null); }
-    } else if (topic === "audio.mic_mute") {
-        if (typeof d.mic_muted === "boolean") { S.mic.on = !d.mic_muted; syncControls("mic.on", null); }
-    } else if (topic === "system.reboot" || topic === "system.poweroff") {
-        if (d.pending) C.expectClose = topic === "system.reboot" ? `${S.robot.host} is restarting. It should be back in about a minute.` : `${S.robot.host} is shutting down. Someone has to reach its power supply to start it again.`;
-        else if (d.scheduled === false) C.expectClose = "";
-        return;
-    } else return;
-    afterChange();
-}
+        render();
+    },
+    "button_led.state": (d) => robotSet("led.mode", d.mode || "off"),
+    "audio.volume": volumeEvent,
+    "audio.mute": volumeEvent,
+    "audio.mic_mute": (d) => { if (typeof d.mic_muted === "boolean") robotSet("mic.on", !d.mic_muted); },
+    "system.reboot": powerEvent("reboot"),
+    "system.poweroff": powerEvent("poweroff"),
+};
+const applyEvent = (topic, d) => ON_EVENT[topic]?.(d);

@@ -1,4 +1,4 @@
-// RSC Console · Page routing, the menu, theme, modals, Stop all and the power dialog.
+// RSC Console · Page routing, the menu, theme, modals, Stop all and the power dialog, and their buttons.
 "use strict";
 
 // ---- Routing ----
@@ -47,42 +47,27 @@ function closeMenu() {
 }
 addEventListener("resize", () => { if (!$("#menu").hidden) placeMenu(); });
 
-// ---- Theme (Settings page) ----
+// ---- Theme (Settings page; its radios follow S.ui.theme through render()) ----
 function applyTheme() {
     const r = document.documentElement;
     if (S.ui.theme === "auto") r.removeAttribute("data-theme");
     else r.setAttribute("data-theme", S.ui.theme);
-    $$('input[name="theme"]').forEach((i) => { i.checked = i.value === S.ui.theme; });
 }
 
-async function copyText(text) {
-    try { await navigator.clipboard.writeText(text); return true; }
-    catch {
-        const ta = document.createElement("textarea");
-        ta.value = text;
-        document.body.appendChild(ta);
-        ta.select();
-        let ok = false;
-        try { ok = document.execCommand("copy"); } catch {}
-        ta.remove();
-        return ok;
-    }
-}
 function openModal(id, focusSel) {
     closeMenu();
     setPresetMenu(false);
     $(id).hidden = false;
     $(focusSel)?.focus();
 }
-const logText = () => LOG.filter((e) => matchesFilter(e.kind)).map((e) => `${fmtTime(e.t)} ${KIND[e.kind]} ${e.text}`).join("\n");
 
 // Stop all: spinner until the robot confirms the stop
-function stopping(el) {
+function stopping(el, stopped) {
     const t0 = performance.now(), token = (el._stopToken || 0) + 1;
     el._stopToken = token;
     el.innerHTML = '<i class="spin" aria-hidden="true"></i><span>Stopping</span>';
     el.setAttribute("aria-busy", "true");
-    send("flipper.stop_all", {}, { urgent: true }).then(() => setTimeout(() => {
+    stopped.then(() => setTimeout(() => {
         if (el._stopToken !== token) return;
         el.innerHTML = '<svg class="ic"><use href="#i-stop"/></svg><span>Stop all</span>';
         el.removeAttribute("aria-busy");
@@ -100,3 +85,25 @@ function openPower() {
     $("#powerOff").disabled = !allowed;
     openModal("#powerBg", '[data-act="closePower"]');
 }
+function powerAction(action) {
+    $("#powerBg").hidden = true;
+    C.expectClose = powerNote(action);
+    send("system." + action, { confirm: true }).then((ack) => {
+        if (!ack?.ok || ack.result?.scheduled === false) {
+            C.expectClose = "";
+            log("err", `the robot didn't ${action === "reboot" ? "restart" : "shut down"}${ack?.result?.reason ? `: ${ack.result.reason}` : ""}`);
+            revealLog();
+        } else if (action === "poweroff") blankScreen();
+    });
+}
+
+Object.assign(ACTIONS, {
+    menu: { run: () => ($("#menu").hidden ? openMenu() : closeMenu()) },
+    closeMenu: { run: closeMenu },
+    nav: { run: (arg) => go(arg) },
+    power: { run: (arg) => (arg ? powerAction(arg) : openPower()) },
+    closePower: { run: () => { $("#powerBg").hidden = true; } },
+    disconnect: { run: () => { closeMenu(); disconnect(); } },
+    resetAll: { run: () => openModal("#resetBg", '[data-act="closeReset"]') },
+    closeReset: { run: () => { $("#resetBg").hidden = true; } },
+});

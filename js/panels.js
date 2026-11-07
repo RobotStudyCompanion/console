@@ -1,11 +1,12 @@
-// RSC Console · The control panel for each part of the robot, and the answers of checks.
+// RSC Console · The control panel for each part of the robot, and the checks: asking, their answers, custom commands.
 "use strict";
 
 // ---- Sections: everyday controls first, Advanced folded at the bottom ----
 const verbOptions = () => (S.robot.verbs.size ? [...S.robot.verbs].sort() : VERBS).map((v) => `<option${v === "servo.calibrate" ? " selected" : ""}>${esc(v)}</option>`).join("");
 const flipButtons = (id) => `<div class="row flip-btns" role="group" aria-label="${id === "left" ? "Left" : "Right"} flipper">${btn(`flip:${id}:-1`, "Reverse", "sm")}${btn(`flip:${id}:0`, "Stop", "sm")}${btn(`flip:${id}:1`, "Forward", "sm")}</div>`;
 const diagSlot = (sec) => `<div data-slot="diag" data-sec="${sec}">${diagHTML(sec)}</div>`;
-const ringHex = () => "#" + [S.ring.r, S.ring.g, S.ring.b].map((c) => c.toString(16).padStart(2, "0")).join("");
+const rgbHex = (r, g, b) => "#" + [r, g, b].map((c) => c.toString(16).padStart(2, "0")).join("");
+const ringHex = () => rgbHex(S.ring.r, S.ring.g, S.ring.b);
 const SECTIONS = [
     { id: "movement", name: "Movement", render: () => `<div class="stack">
         ${box(slider("flip.left", "Left flipper", { min: -100, max: 100, step: 1, bipolar: true, labels: ["Reverse", "Stop", "Forward"] }), flipButtons("left"),
@@ -120,9 +121,13 @@ function flatten(v, path, rows) {
     else for (const [k, x] of Object.entries(v)) flatten(x, path ? `${path}.${k}` : k, rows);
     return rows;
 }
+// Built once per answer and kept on it, since render() asks for it on every change
 function diagHTML(sec) {
     const d = S.diag[sec];
     if (!d) return "";
+    return d.html ??= answerHTML(sec, d);
+}
+function answerHTML(sec, d) {
     const head = (chip) => `<div class="result-head"><code>${esc(d.verb)}</code>${chip}<button type="button" class="icon-btn sm" data-act="diagClear:${sec}" aria-label="Hide this answer" title="Hide"><svg class="ic"><use href="#i-x"/></svg></button></div>`;
     if (d.waiting) return `<div class="result">${head('<span class="chip">asking…</span>')}</div>`;
     const a = d.ack;
@@ -137,14 +142,27 @@ function diagHTML(sec) {
         : `<p class="dim">Done. The robot sent no data back.</p>`;
     return `<div class="result">${head('<span class="chip ok">OK</span>')}${body}${r == null ? "" : `<details class="raw"><summary>Raw reply</summary><pre>${esc(JSON.stringify(r, null, 2))}</pre></details>`}</div>`;
 }
+// The answer shows in the panel that was open when you asked
 function askRobot(verb, args) {
     const sec = S.ui.sel;
     S.diag[sec] = { verb, waiting: true };
-    updateSlots();
-    send(verb, args).then((ack) => { S.diag[sec] = { verb, ack }; updateSlots(); });
+    render();
+    send(verb, args).then((ack) => { S.diag[sec] = { verb, ack }; render(); });
 }
-function updateSlots() {
-    $$('[data-slot="testResult"]').forEach((x) => { x.innerHTML = testResult(); });
-    $$('[data-slot="calStored"]').forEach((x) => { x.innerHTML = calStored(); });
-    $$('[data-slot="diag"]').forEach((x) => { x.innerHTML = diagHTML(x.dataset.sec); });
-}
+const DIAG_ARGS = { "events.history": { limit: 20 } };
+Object.assign(ACTIONS, {
+    diag: { verb: (arg) => arg, run: (arg) => askRobot(arg, DIAG_ARGS[arg] || {}) },
+    diagClear: { run: (arg) => { delete S.diag[arg]; render(); } },
+    customSend: {
+        run: () => {
+            const raw = $("#c-custom-args").value.trim(), err = $('[data-slot="customErr"]');
+            let args = {};
+            if (raw) {
+                try { args = JSON.parse(raw); if (!args || typeof args !== "object" || Array.isArray(args)) throw new Error(); }
+                catch { err.textContent = 'Arguments must be a JSON object, for example {"id": "right"}.'; err.hidden = false; return; }
+            }
+            err.hidden = true;
+            askRobot($("#c-custom-verb").value, args);
+        },
+    },
+});
