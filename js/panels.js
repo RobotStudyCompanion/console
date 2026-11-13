@@ -34,7 +34,7 @@ const SECTIONS = [
             check("diag:ring.modes", "Patterns", "The light patterns this robot knows")) + diagSlot("light"))}</div>` },
     { id: "face", name: "Face", render: () => `<div class="stack">
         <div class="field"><span class="field-label">Expression</span><div class="expr">
-            ${MOODS.map(([v, t]) => `<button type="button" data-act="mood:${v}" data-mood="${v}" aria-pressed="${!S.face.cycle && S.face.mood === v}">${faceGlyph(v)}${t}</button>`).join("")}
+            ${MOODS.map(([v, t]) => `<button type="button" data-act="mood:${v}" data-mood="${v}" aria-pressed="${shownMood() === v}">${faceGlyph(v)}${t}</button>`).join("")}
             <button type="button" data-act="blink">${GLYPH.blink}Blink</button>
         </div></div>
         ${box(toggle("face.cycle", "Cycle through all moods"))}</div>` },

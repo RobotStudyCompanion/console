@@ -26,8 +26,6 @@ async function syncFromRobot() {
         const d = await send("audio.devices");
         if (d?.ok) S.sound.device = deviceName(d.result);
     }
-    // The screen has its own power supply, so it stays blank after a shutdown from this console until something wakes it
-    if (!S.robot.simulated && supports("cyd.raw")) send("cyd.raw", { line: "resume" });
     renderRobotInfo();
     refreshPanel();
 }
@@ -43,11 +41,19 @@ function applyPeripherals(p) {
     S.ring.mode = p.ring?.current_mode || "off";
     S.led.mode = p.button_led?.mode || "off";
     if (p.audio?.capture && !p.audio.capture.error) applyCapture(p.audio.capture);
+    if (p.cyd?.state) applyScreen(p.cyd.state);
     const missing = [];
     if (!(p.ring && p.ring.available)) missing.push("light ring");
     if (!(p.cyd && p.cyd.available)) missing.push("screen");
     if (!(p.state && p.state.available)) missing.push("saved settings");
     S.robot.missing = missing;
+}
+// The screen's face as the host knows it (its cyd.state event): the screen reports it, or an older screen gets what
+// was last sent to it. null means not known.
+function applyScreen(d) {
+    robotSet("face.mood", typeof d.mood === "string" ? d.mood : null);
+    robotSet("face.cycle", typeof d.cycle === "boolean" ? d.cycle : null);
+    robotSet("face.reports", d.reports === true);
 }
 function applyCapture(c) {
     if (typeof c.stream_rate === "number") S.mic.rate = c.stream_rate;
@@ -124,6 +130,7 @@ const ON_EVENT = {
     "audio.volume": volumeEvent,
     "audio.mute": volumeEvent,
     "audio.mic_mute": (d) => { if (typeof d.mic_muted === "boolean") robotSet("mic.on", !d.mic_muted); },
+    "cyd.state": applyScreen,
     "system.reboot": powerEvent("reboot"),
     "system.poweroff": powerEvent("poweroff"),
 };

@@ -10,8 +10,9 @@ function robotState(host = "", port = 8765) {
         flip: { left: 0, right: 0 },
         ring: clone(DEFAULTS.ring),
         led: clone(DEFAULTS.led),
-        // The robot doesn't report its face, so this is the last one this browser set (null: not known)
-        face: { mood: store.get(K.face, {})[host] || null, cycle: false },
+        // What the screen shows, as the host reports it (cyd.state); null: not known. reports: false means the screen's
+        // firmware doesn't report, so these are only what was last sent to it.
+        face: { mood: null, cycle: null, reports: false },
         diag: {},
         sound: Object.assign(clone(DEFAULTS.sound), { running: false, device: "", result: null, error: "" }),
         // The mixer values are shown until the robot's own are read
@@ -53,8 +54,5 @@ function fromRobot(id, speed) {
     if (p <= dz) return 0;
     return Math.sign(speed) * Math.round((p - dz) / (100 - dz) * 100);
 }
-function rememberFace() {
-    const faces = store.get(K.face, {});
-    faces[S.robot.host] = S.face.mood;
-    store.set(K.face, faces);
-}
+// The mood whose button is pressed: none while the screen cycles without reporting which mood it shows
+const shownMood = () => (S.face.cycle && !S.face.reports ? null : S.face.mood);

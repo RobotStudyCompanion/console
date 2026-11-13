@@ -28,6 +28,14 @@ const RING_PTS = (() => {
 const ringLeds = (cls, front) => RING_PTS.map((p, i) => (p.y >= RING_CY) === front
     ? `<rect class="${cls}" data-i="${i}" x="-3" y="-1.4" width="6" height="2.8" rx="0.7" transform="translate(${p.x.toFixed(1)} ${p.y.toFixed(1)}) rotate(${p.rot.toFixed(1)})"/>` : "").join("");
 let blinkUntil = 0;
+// What the drawing's screen shows for a face state: [mood to draw, faded, label]
+function faceShown({ mood, cycle, reports }) {
+    if (cycle && !reports) return ["NEUTRAL", true, "Cycling moods"];
+    if (!mood) return ["NEUTRAL", true, cycle ? "Cycling" : "Face unknown"];
+    if (cycle) return [mood === "CUSTOM" ? "NEUTRAL" : mood, false, "Cycling"];
+    if (mood === "CUSTOM") return ["NEUTRAL", false, "Custom face"];
+    return [mood, false, ""];
+}
 function robotSVG() {
     let grille = "";
     [[252, 3], [261, 5], [270, 7]].forEach(([y, n]) => {
@@ -106,15 +114,15 @@ function drawRobot(t = performance.now()) {
     });
     drawFlipper(svg.querySelector("#rbFlipL"), reduced ? S.flip.left * 0.8 : flipAngle.l);
     drawFlipper(svg.querySelector("#rbFlipR"), reduced ? S.flip.right * 0.8 : flipAngle.r);
-    // While the robot cycles its moods, it picks the next one and its timing itself and doesn't report them,
-    // so the drawing says it's cycling rather than showing a face that would be out of step
-    const mood = S.face.mood || "NEUTRAL";
-    const blinking = t < blinkUntil, eyes = svg.querySelector("#rbEyes"), key = (S.face.cycle ? "cycle" : mood) + blinking;
+    // The face the screen reports. A screen that cycles without reporting picks each mood and its timing itself,
+    // so the drawing says it's cycling rather than showing a face that would be out of step.
+    const [mood, faded, label] = faceShown(S.face);
+    const blinking = t < blinkUntil, eyes = svg.querySelector("#rbEyes"), key = [mood, faded, label, blinking].join();
     if (eyes.dataset.key !== key) {
         eyes.dataset.key = key;
-        eyes.innerHTML = S.face.cycle
-            ? `<g opacity="0.35">${eyesSVG("NEUTRAL", "rb", "rb-face", blinking)}</g><text class="rb-cycle" x="180" y="194" text-anchor="middle">Cycling moods</text>`
-            : eyesSVG(mood, "rb", "rb-face", blinking);
+        const drawn = eyesSVG(mood, "rb", "rb-face", blinking);
+        eyes.innerHTML = (faded ? `<g opacity="0.35">${drawn}</g>` : drawn) +
+            (label ? `<text class="rb-cycle" x="180" y="194" text-anchor="middle">${label}</text>` : "");
     }
     // The same fades the robot runs: pulse a quick symmetric fade, breathe a slow one that rises faster than it falls
     const m = S.led.mode;

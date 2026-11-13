@@ -93,7 +93,7 @@ function powerAction(action) {
             C.expectClose = "";
             log("err", `the robot didn't ${action === "reboot" ? "restart" : "shut down"}${ack?.result?.reason ? `: ${ack.result.reason}` : ""}`);
             revealLog();
-        } else if (action === "poweroff") blankScreen();
+        }
     });
 }
 

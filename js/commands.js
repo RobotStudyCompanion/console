@@ -17,21 +17,14 @@ function sendFlip(id) {
     touched["flip." + id] = performance.now();
     return send("flipper." + id, { speed: toRobot(id, S.flip[id]) });
 }
+// Shown at once; the host's cyd.state then confirms it, or corrects it
 function setMood(m) {
-    // The screen may be cycling even if this console never asked it to: that's its default, it's saved on the screen,
-    // and the host can't report it. Turn it off every time, or the mood would last only until the next switch.
+    // A new mood doesn't stop the screen cycling, and an older screen can't say whether it is (cycling is its
+    // default, saved on the screen). Turn it off every time, or the mood would last only until the next switch.
     send("cyd.mood_cycle", { value: "off" });
     S.face.cycle = false;
     S.face.mood = m;
-    rememberFace();
     return send("cyd.mood", { value: m });
-}
-// The screen runs on its own power supply, so after the robot shuts down it would keep showing a face. Freeze and blank it.
-function blankScreen() {
-    if (!supports("cyd.raw")) return;
-    send("cyd.raw", { line: "pause" });
-    send("cyd.raw", { line: "clear" });
-    if (supports("cyd.led")) send("cyd.led", { value: "off" });
 }
 const sendTune = () => send("audio.capture.tune", Object.assign({ stream_rate: S.mic.rate, channel_mode: S.mic.channel }, S.mic.hpfOn ? { hpf_hz: 80 } : { hpf_mode: "off" }));
 const setMixer = (key) => (S.mic.missing.has(key) ? null : send("audio.mixer.set", { name: MIXER[key], value: String(S.mic[key]) }));
@@ -138,8 +131,8 @@ const APPLY = {
 function snapshot() {
     const snap = Object.fromEntries(Object.entries(DEFAULTS).map(([part, d]) => [part, Object.fromEntries(Object.keys(d).map((k) => [k, S[part][k]]))]));
     for (const k of Object.keys(MIXER)) snap.mic[k] = S.mic[k];
-    // A face this console doesn't know isn't saved, so the preset leaves the face alone
-    if (!S.face.mood) delete snap.face;
+    // A face the console has no button for (not known, a custom face, an idle one) isn't saved, so the preset leaves the face alone
+    if (!MOODS.some(([v]) => v === S.face.mood)) delete snap.face;
     return snap;
 }
 // Fields a saved part lacks (older presets) come from DEFAULTS

@@ -99,7 +99,7 @@ function render() {
         b.disabled = why != null;
         setTip(b, why);
     }
-    $$("[data-mood]").forEach((b) => b.setAttribute("aria-pressed", String(!S.face.cycle && b.dataset.mood === S.face.mood)));
+    $$("[data-mood]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mood === shownMood())));
 }
 
 // ---- Changing a control ----

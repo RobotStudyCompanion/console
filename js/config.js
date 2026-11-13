@@ -11,7 +11,6 @@ const K = {
     log: "rsc.app.log",
     presets: "rsc.app.presets",
     chats: "rsc.app.chats",
-    face: "rsc.app.face",
     prefs: "rsc.app.prefs",
 };
 
@@ -38,7 +37,8 @@ const MOODS = [["NEUTRAL", "Neutral"], ["HAPPY", "Happy"], ["SAD", "Sad"], ["ANG
 // (eye radius, pupil hole radius) cut by a top lid that can slant (top lid height, tilt) and a bottom lid
 // (bottom lid height), in the library's units: [topH, botH, tilt, pupil, radius]. These are the numbers
 // in v0.1.3, the version the firmware names (setEmotion); v0.1.4 removed the named moods. QUESTIONING has a
-// different left and right eye.
+// different left and right eye, and so do IDLE1 and IDLE2. The numbers are setEmotion(String) in the firmware's copy,
+// lib/Grobot_Animations/src/Grobot_Animations.cpp.
 const EYES = {
     NEUTRAL: [0, 0, 0, 30, 45],
     HAPPY: [0, 50, 0, 30, 45],
@@ -47,8 +47,13 @@ const EYES = {
     EXCITED: [0, 0, 0, 23, 45],
     ANNOYED: [0, 35, 25, 0, 45],
     QUESTIONING: { l: [0, 0, 0, 30, 45], r: [50, 0, 0, 30, 45] },
+    IDLE1: { l: [0, 0, 0, 30, 45], r: [0, 0, 0, 15, 30] },
+    IDLE2: { l: [0, 0, 0, 15, 30], r: [0, 0, 0, 30, 45] },
+    IDLE3: [35, 35, 0, 0, 45],
 };
-const moodName = (m) => (MOODS.find(([v]) => v === m) || [m, m])[1];
+// The screen shows these by itself (cycling, or its idle animation), so they're drawn but have no buttons
+const IDLE_MOODS = [["IDLE1", "Idle 1"], ["IDLE2", "Idle 2"], ["IDLE3", "Idle 3"]];
+const moodName = (m) => ([...MOODS, ...IDLE_MOODS].find(([v]) => v === m) || [m, m])[1];
 
 // Flipper buttons spin at one of these speeds, in percent of the usable range
 const SPEEDS = { slow: 30, medium: 60, fast: 100 };
